@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskManager — Board</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+          --bg: #0a0a0b;
+          --surface: #111114;
+          --surface2: #18181d;
+          --border: #222228;
+          --border2: #2e2e38;
+          --text: #e8e8f0;
+          --muted: #55556a;
+          --accent: #7b6ef6;
+          --accent2: #a78bfa;
+          --todo: #3b82f6;
+          --inprogress: #f59e0b;
+          --done: #10b981;
+          --high: #ef4444;
+          --medium: #f59e0b;
+          --low: #6b7280;
+          --delete: #ef4444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+          background: var(--bg);
+          color: var(--text);
+          font-family: 'Syne', sans-serif;
+          min-height: 100vh;
+          overflow-x: hidden;
+        }
+
+        /* Noise texture overlay */
+        body::before {
+          content: '';
+          position: fixed;
+          inset: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+          pointer-events: none;
+          z-index: 0;
+          opacity: 0.4;
+        }
+
+        /* Header */
+        header {
+          position: relative;
+          z-index: 10;
+          padding: 28px 40px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid var(--border);
+          backdrop-filter: blur(10px);
+        }
+
+        .logo {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .logo-icon {
+          width: 32px;
+          height: 32px;
+          background: linear-gradient(135deg, var(--accent), var(--accent2));
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+        }
+
+        .logo-text {
+          font-size: 18px;
+          font-weight: 800;
+          letter-spacing: -0.5px;
+          color: var(--text);
+        }
+
+        .logo-text span {
+          color: var(--accent2);
+        }
+
+        .header-meta {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 11px;
+          color: var(--muted);
+          letter-spacing: 1px;
+          text-transform: uppercase;
+        }
+
+        .add-btn {
+          background: var(--accent);
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 8px;
+          font-family: 'Syne', sans-serif;
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+          transition: all 0.2s;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .add-btn:hover {
+          background: var(--accent2);
+          transform: translateY(-1px);
+          box-shadow: 0 8px 24px rgba(123, 110, 246, 0.3);
+        }
+
+        /* Stats bar */
+        .stats-bar {
+          position: relative;
+          z-index: 10;
+          padding: 16px 40px;
+          display: flex;
+          gap: 32px;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .stat {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 12px;
+          color: var(--muted);
+        }
+
+        .stat-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+        }
+
+        .stat-count {
+          font-weight: 500;
+          color: var(--text);
+        }
+
+        /* Board */
+        .board {
+          position: relative;
+          z-index: 10;
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 20px;
+          padding: 32px 40px;
+          min-height: calc(100vh - 140px);
+        }
+
+        .column {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          animation: fadeUp 0.4s ease forwards;
+          opacity: 0;
+        }
+
+        .column:nth-child(1) { animation-delay: 0.1s; }
+        .column:nth-child(2) { animation-delay: 0.2s; }
+        .column:nth-child(3) { animation-delay: 0.3s; }
+
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .column-header {
+          padding: 20px 20px 16px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .column-title {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+        }
+
+        .col-indicator {
+          width: 3px;
+          height: 16px;
+          border-radius: 2px;
+        }
+
+        .todo .col-indicator { background: var(--todo); }
+        .inprogress .col-indicator { background: var(--inprogress); }
+        .done .col-indicator { background: var(--done); }
+
+        .column-count {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 11px;
+          color: var(--muted);
+          background: var(--surface2);
+          padding: 3px 8px;
+          border-radius: 20px;
+          border: 1px solid var(--border);
+        }
+
+        .column-body {
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          flex: 1;
+          min-height: 200px;
+        }
+
+        /* Task Card */
+        .task-card {
+          background: var(--surface2);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 14px 16px;
+          cursor: pointer;
+          transition: all 0.2s;
+          animation: cardIn 0.3s ease forwards;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .task-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          opacity: 0;
+          transition: opacity 0.2s;
+        }
+
+        .task-card.HIGH::before { background: var(--high); }
+        .task-card.MEDIUM::before { background: var(--medium); }
+        .task-card.LOW::before { background: var(--low); }
+
+        .task-card:hover {
+          border-color: var(--border2);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+
+        .task-card:hover::before { opacity: 1; }
+
+        @keyframes cardIn {
+          from { opacity: 0; transform: scale(0.96); }
+          to { opacity: 1; transform: scale(1); }
+        }
+
+        .task-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text);
+          margin-bottom: 8px;
+          line-height: 1.4;
+        }
+
+        .task-desc {
+          font-size: 12px;
+          color: var(--muted);
+          margin-bottom: 12px;
+          line-height: 1.5;
+          font-family: 'JetBrains Mono', monospace;
+        }
+
+        .task-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .priority-badge {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 10px;
+          font-weight: 500;
+          padding: 3px 8px;
+          border-radius: 4px;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+        }
+
+        .priority-badge.HIGH { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.2); }
+        .priority-badge.MEDIUM { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
+        .priority-badge.LOW { background: rgba(107,114,128,0.15); color: #9ca3af; border: 1px solid rgba(107,114,128,0.2); }
+
+        .task-actions {
+          display: flex;
+          gap: 6px;
+          opacity: 0;
+          transition: opacity 0.2s;
+        }
+
+        .task-card:hover .task-actions { opacity: 1; }
+
+        .action-btn {
+          width: 26px;
+          height: 26px;
+          border-radius: 6px;
+          border: 1px solid var(--border2);
+          background: var(--surface);
+          color: var(--muted);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          transition: all 0.15s;
+        }
+
+        .action-btn:hover { background: var(--border2); color: var(--text); }
+        .action-btn.delete:hover { background: rgba(239,68,68,0.15); color: var(--delete); border-color: rgba(239,68,68,0.3); }
+        .action-btn.complete:hover { background: rgba(16,185,129,0.15); color: var(--done); border-color: rgba(16,185,129,0.3); }
+
+        /* Empty state */
+        .empty-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 32px 16px;
+          color: var(--muted);
+          gap: 8px;
+          border: 1px dashed var(--border);
+          border-radius: 10px;
+          font-size: 12px;
+          font-family: 'JetBrains Mono', monospace;
+          text-align: center;
+        }
+
+        .empty-icon { font-size: 24px; opacity: 0.4; }
+
+        /* Modal */
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.7);
+          backdrop-filter: blur(4px);
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.2s;
+        }
+
+        .modal-overlay.active {
+          opacity: 1;
+          pointer-events: all;
+        }
+
+        .modal {
+          background: var(--surface);
+          border: 1px solid var(--border2);
+          border-radius: 20px;
+          padding: 32px;
+          width: 100%;
+          max-width: 440px;
+          transform: translateY(16px) scale(0.97);
+          transition: transform 0.2s;
+          box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+        }
+
+        .modal-overlay.active .modal {
+          transform: translateY(0) scale(1);
+        }
+
+        .modal-title {
+          font-size: 20px;
+          font-weight: 800;
+          margin-bottom: 24px;
+          letter-spacing: -0.5px;
+        }
+
+        .form-group {
+          margin-bottom: 16px;
+        }
+
+        .form-label {
+          display: block;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 11px;
+          color: var(--muted);
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          margin-bottom: 8px;
+        }
+
+        .form-input, .form-select, .form-textarea {
+          width: 100%;
+          background: var(--surface2);
+          border: 1px solid var(--border2);
+          border-radius: 10px;
+          padding: 12px 14px;
+          color: var(--text);
+          font-family: 'Syne', sans-serif;
+          font-size: 14px;
+          outline: none;
+          transition: border-color 0.2s;
+        }
+
+        .form-textarea { resize: none; height: 80px; }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+          border-color: var(--accent);
+        }
+
+        .form-select option { background: var(--surface2); }
+
+        .modal-actions {
+          display: flex;
+          gap: 10px;
+          margin-top: 24px;
+        }
+
+        .btn-primary {
+          flex: 1;
+          background: var(--accent);
+          color: white;
+          border: none;
+          padding: 12px;
+          border-radius: 10px;
+          font-family: 'Syne', sans-serif;
+          font-weight: 700;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .btn-primary:hover { background: var(--accent2); }
+
+        .btn-secondary {
+          background: var(--surface2);
+          color: var(--muted);
+          border: 1px solid var(--border2);
+          padding: 12px 20px;
+          border-radius: 10px;
+          font-family: 'Syne', sans-serif;
+          font-weight: 600;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .btn-secondary:hover { color: var(--text); border-color: var(--muted); }
+
+        /* Toast */
+        .toast {
+          position: fixed;
+          bottom: 32px;
+          right: 32px;
+          background: var(--surface2);
+          border: 1px solid var(--border2);
+          border-radius: 12px;
+          padding: 14px 20px;
+          font-size: 13px;
+          font-family: 'JetBrains Mono', monospace;
+          z-index: 200;
+          transform: translateY(80px);
+          opacity: 0;
+          transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .toast.show {
+          transform: translateY(0);
+          opacity: 1;
+        }
+
+        .toast-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: var(--done);
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">
+        <div class="logo-icon">⚡</div>
+        <div class="logo-text">Task<span>Manager</span></div>
+    </div>
+    <div class="header-meta" id="dateDisplay"></div>
+    <button class="add-btn" onclick="openModal()">
+        <span>+</span> New Task
+    </button>
+</header>
+
+<div class="stats-bar">
+    <div class="stat">
+        <div class="stat-dot" style="background: var(--todo)"></div>
+        <span>To Do</span>
+        <span class="stat-count" id="stat-todo">0</span>
+    </div>
+    <div class="stat">
+        <div class="stat-dot" style="background: var(--inprogress)"></div>
+        <span>In Progress</span>
+        <span class="stat-count" id="stat-inprogress">0</span>
+    </div>
+    <div class="stat">
+        <div class="stat-dot" style="background: var(--done)"></div>
+        <span>Done</span>
+        <span class="stat-count" id="stat-done">0</span>
+    </div>
+    <div class="stat" style="margin-left: auto">
+        <div class="stat-dot" style="background: var(--accent)"></div>
+        <span>Total</span>
+        <span class="stat-count" id="stat-total">0</span>
+    </div>
+</div>
+
+<div class="board">
+    <div class="column todo">
+        <div class="column-header">
+            <div class="column-title">
+                <div class="col-indicator"></div>
+                To Do
+            </div>
+            <span class="column-count" id="count-todo">0</span>
+        </div>
+        <div class="column-body" id="col-todo"></div>
+    </div>
+
+    <div class="column inprogress">
+        <div class="column-header">
+            <div class="column-title">
+                <div class="col-indicator"></div>
+                In Progress
+            </div>
+            <span class="column-count" id="count-inprogress">0</span>
+        </div>
+        <div class="column-body" id="col-inprogress"></div>
+    </div>
+
+    <div class="column done">
+        <div class="column-header">
+            <div class="column-title">
+                <div class="col-indicator"></div>
+                Done
+            </div>
+            <span class="column-count" id="count-done">0</span>
+        </div>
+        <div class="column-body" id="col-done"></div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOnBg(event)">
+    <div class="modal">
+        <div class="modal-title" id="modalTitle">New Task</div>
+        <div class="form-group">
+            <label class="form-label">Title</label>
+            <input class="form-input" id="taskTitle" placeholder="What needs to be done?" />
+        </div>
+        <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea class="form-textarea" id="taskDesc" placeholder="Optional details..."></textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Priority</label>
+            <select class="form-select" id="taskPriority">
+                <option value="HIGH">🔴 High</option>
+                <option value="MEDIUM" selected>🟡 Medium</option>
+                <option value="LOW">⚪ Low</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-select" id="taskStatus">
+                <option value="todo">To Do</option>
+                <option value="inprogress">In Progress</option>
+                <option value="done">Done</option>
+            </select>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+            <button class="btn-primary" onclick="saveTask()">Save Task</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+    <div class="toast-dot"></div>
+    <span id="toastMsg">Task saved!</span>
+</div>
+
+<script>
+    // State
+    let tasks = [
+      { id: 1, title: 'Setup Spring Boot project', description: 'Initialize with JPA, Security, H2', priority: 'HIGH', status: 'done' },
+      { id: 2, title: 'Create Task & User models', description: 'Entity classes with Lombok', priority: 'HIGH', status: 'done' },
+      { id: 3, title: 'Build REST endpoints', description: 'CRUD operations for tasks', priority: 'HIGH', status: 'inprogress' },
+      { id: 4, title: 'Add JWT Authentication', description: 'Register & login endpoints', priority: 'HIGH', status: 'todo' },
+      { id: 5, title: 'Write unit tests', description: 'JUnit 5 + Mockito coverage', priority: 'MEDIUM', status: 'todo' },
+      { id: 6, title: 'Add Kanban dashboard', description: 'Dark minimal UI', priority: 'LOW', status: 'inprogress' },
+    ];
+    let nextId = 7;
+    let editingId = null;
+
+    // Date
+    document.getElementById('dateDisplay').textContent =
+      new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }).toUpperCase();
+
+    function render() {
+      const cols = { todo: [], inprogress: [], done: [] };
+      tasks.forEach(t => cols[t.status].push(t));
+
+      ['todo', 'inprogress', 'done'].forEach(status => {
+        const col = document.getElementById(`col-${status}`);
+        const count = document.getElementById(`count-${status}`);
+        const statCount = document.getElementById(`stat-${status}`);
+        count.textContent = cols[status].length;
+        statCount.textContent = cols[status].length;
+
+        if (cols[status].length === 0) {
+          col.innerHTML = `<div class="empty-state"><div class="empty-icon">◻</div><span>No tasks here</span></div>`;
+          return;
+        }
+
+        col.innerHTML = cols[status].map(task => `
+          <div class="task-card ${task.priority}" onclick="editTask(${task.id})">
+            <div class="task-title">${task.title}</div>
+            ${task.description ? `<div class="task-desc">${task.description}</div>` : ''}
+            <div class="task-footer">
+              <span class="priority-badge ${task.priority}">${task.priority}</span>
+              <div class="task-actions" onclick="event.stopPropagation()">
+                ${status !== 'done' ? `<button class="action-btn complete" onclick="completeTask(${task.id})" title="Complete">✓</button>` : ''}
+                ${status === 'todo' ? `<button class="action-btn" onclick="moveTask(${task.id}, 'inprogress')" title="Start">▶</button>` : ''}
+                <button class="action-btn delete" onclick="deleteTask(${task.id})" title="Delete">✕</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      });
+
+      document.getElementById('stat-total').textContent = tasks.length;
+    }
+
+    function openModal() {
+      editingId = null;
+      document.getElementById('modalTitle').textContent = 'New Task';
+      document.getElementById('taskTitle').value = '';
+      document.getElementById('taskDesc').value = '';
+      document.getElementById('taskPriority').value = 'MEDIUM';
+      document.getElementById('taskStatus').value = 'todo';
+      document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    function editTask(id) {
+      const task = tasks.find(t => t.id === id);
+      if (!task) return;
+      editingId = id;
+      document.getElementById('modalTitle').textContent = 'Edit Task';
+      document.getElementById('taskTitle').value = task.title;
+      document.getElementById('taskDesc').value = task.description || '';
+      document.getElementById('taskPriority').value = task.priority;
+      document.getElementById('taskStatus').value = task.status;
+      document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('active');
+    }
+
+    function closeModalOnBg(e) {
+      if (e.target === document.getElementById('modalOverlay')) closeModal();
+    }
+
+    function saveTask() {
+      const title = document.getElementById('taskTitle').value.trim();
+      if (!title) { document.getElementById('taskTitle').focus(); return; }
+
+      const data = {
+        title,
+        description: document.getElementById('taskDesc').value.trim(),
+        priority: document.getElementById('taskPriority').value,
+        status: document.getElementById('taskStatus').value,
+      };
+
+      if (editingId) {
+        tasks = tasks.map(t => t.id === editingId ? { ...t, ...data } : t);
+        showToast('Task updated!');
+      } else {
+        tasks.push({ id: nextId++, ...data });
+        showToast('Task created!');
+      }
+
+      closeModal();
+      render();
+    }
+
+    function deleteTask(id) {
+      tasks = tasks.filter(t => t.id !== id);
+      showToast('Task deleted!');
+      render();
+    }
+
+    function completeTask(id) {
+      tasks = tasks.map(t => t.id === id ? { ...t, status: 'done' } : t);
+      showToast('Task completed! ✓');
+      render();
+    }
+
+    function moveTask(id, status) {
+      tasks = tasks.map(t => t.id === id ? { ...t, status } : t);
+      render();
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMsg').textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // Keyboard shortcut
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal();
+      if (e.key === 'n' && !document.getElementById('modalOverlay').classList.contains('active')) openModal();
+    });
+
+    render();
+</script>
+</body>
+</html>
